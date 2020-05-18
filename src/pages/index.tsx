@@ -2,6 +2,7 @@ import { Button, FormControl, Grid, InputLabel, makeStyles, MenuItem, Paper, Sel
 import { Field, Form, Formik, useField, useFormikContext } from 'formik';
 import { GetServerSideProps } from 'next';
 import router, { useRouter } from 'next/router';
+import { useEffect } from 'react';
 import useSWR from 'swr';
 import { getMakes, Make } from '../database/getMakes';
 import { getModels, Model } from '../database/getModels';
@@ -147,13 +148,13 @@ export function ModelSelect({ models, make, ...props }: ModelSelectProps) {
     name: props.name,
   });
 
+  // In the video I should have done this instead of onSuccess =)
+  useEffect(() => {
+    setFieldValue('model', 'all');
+  }, [make]);
+
   const { data } = useSWR<Model[]>('/api/models?make=' + make, {
-    dedupingInterval: 60000,
-    onSuccess: (newValues) => {
-      if (!newValues.map((a) => a.model).includes(field.value)) {
-        setFieldValue('model', 'all');
-      }
-    },
+    dedupingInterval: 60000
   });
   const newModels = data || models;
 
