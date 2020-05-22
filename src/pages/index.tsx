@@ -2,7 +2,7 @@ import { Button, FormControl, Grid, InputLabel, makeStyles, MenuItem, Paper, Sel
 import { Field, Form, Formik, useField, useFormikContext } from 'formik';
 import { GetServerSideProps } from 'next';
 import router, { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { getMakes, Make } from '../database/getMakes';
 import { getModels, Model } from '../database/getModels';
@@ -29,12 +29,12 @@ export default function Search({ makes, models, singleColumn }: SearchProps) {
   const { query } = useRouter();
   const smValue = singleColumn ? 12 : 6;
 
-  const initialValues = {
+  const [initialValues] = useState({
     make: getAsString(query.make) || 'all',
     model: getAsString(query.model) || 'all',
     minPrice: getAsString(query.minPrice) || 'all',
     maxPrice: getAsString(query.maxPrice) || 'all',
-  };
+  });
 
   return (
     <Formik
@@ -75,7 +75,7 @@ export default function Search({ makes, models, singleColumn }: SearchProps) {
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={smValue}>
-                <ModelSelect make={values.make} name="model" models={models} />
+                <ModelSelect initialMake={initialValues.make} make={values.make} name="model" models={models} />
               </Grid>
               <Grid item xs={12} sm={smValue}>
                 <FormControl fullWidth variant="outlined">
@@ -140,23 +140,27 @@ export interface ModelSelectProps extends SelectProps {
   name: string;
   models: Model[];
   make: string;
+  initialMake: string;
 }
 
-export function ModelSelect({ models, make, ...props }: ModelSelectProps) {
+export function ModelSelect({ initialMake, models, make, ...props }: ModelSelectProps) {
   const { setFieldValue } = useFormikContext();
   const [field] = useField({
-    name: props.name,
+    name: props.name
   });
 
-  // In the video I should have done this instead of onSuccess =)
+  const initialModelsOrUndefined = make === initialMake ? models : undefined;
+
+  const { data: newModels } = useSWR<Model[]>('/api/models?make=' + make, {
+    dedupingInterval: 60000,
+    initialData: make === 'all' ? [] : initialModelsOrUndefined 
+  });
+
   useEffect(() => {
-    setFieldValue('model', 'all');
-  }, [make]);
-
-  const { data } = useSWR<Model[]>('/api/models?make=' + make, {
-    dedupingInterval: 60000
-  });
-  const newModels = data || models;
+    if (!newModels?.map((a) => a.model).includes(field.value)) {
+      setFieldValue('model', 'all');
+    }
+  }, [make, newModels]);
 
   return (
     <FormControl fullWidth variant="outlined">
@@ -171,7 +175,7 @@ export function ModelSelect({ models, make, ...props }: ModelSelectProps) {
         <MenuItem value="all">
           <em>All Models</em>
         </MenuItem>
-        {newModels.map((model) => (
+        {newModels?.map((model) => (
           <MenuItem key={model.model} value={model.model}>
             {`${model.model} (${model.count})`}
           </MenuItem>
@@ -181,7 +185,9 @@ export function ModelSelect({ models, make, ...props }: ModelSelectProps) {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
+export const getServerSideProps: GetServerSideProps<SearchProps> = async (
+  ctx
+) => {
   const make = getAsString(ctx.query.make);
 
   const [makes, models] = await Promise.all([getMakes(), getModels(make)]);
