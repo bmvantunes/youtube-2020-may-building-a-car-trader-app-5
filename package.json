@@ -13,7 +13,7 @@
     "@material-ui/lab": "4.0.0-alpha.53",
     "axios": "0.19.2",
     "formik": "2.1.4",
-    "next": "9.4.1",
+    "next": "13.0.2",
     "react": "16.13.1",
     "react-dom": "16.13.1",
     "sqlite": "4.0.7",
